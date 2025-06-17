@@ -6,25 +6,41 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Upload, Download, Trash2, File, ImageIcon, Video, Music, FileText, RefreshCw } from "lucide-react"
+import { Upload, Download, Trash2, File, ImageIcon, Video, Music, FileText, RefreshCw } from 'lucide-react'
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import DragDropUpload from "./drag-and-drop"
 import { toast } from "sonner"
-import { FileObject } from "@/lib/s3/types"
+import { ListObjectsResponse } from "@/lib/s3/types"
 
 export default function FileManager() {
-  const [files, setFiles] = useState<FileObject[]>([])
+  const [objectResponse, setObjectResponse] = useState<ListObjectsResponse>({ objects: [] })
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
-  const fetchFiles = async (prefix?: string) => {
-    setLoading(true)
+  const fetchFiles = async (prefix?: string, continuationToken?: string, limit?: number, append = false) => {
+    if (append) {
+      setLoadingMore(true)
+    } else {
+      setLoading(true)
+    }
+    
     try {
-      const response = await fetch(`/api/files?prefix=${encodeURIComponent(prefix || "")}`)
+      const response = await fetch(`/api/files?prefix=${encodeURIComponent(prefix || "")}&continuationToken=${encodeURIComponent(continuationToken || "")}&limit=${limit || 10}`)
       const data = await response.json()
+      console.log("data", data.ListObjectsResponse)
       if (response.ok) {
-        setFiles(data.files)
+        if (append) {
+          // Append new files to existing ones
+          setObjectResponse(prev => ({
+            ...data.ListObjectsResponse,
+            objects: [...prev.objects, ...data.ListObjectsResponse.objects]
+          }))
+        } else {
+          // Replace all files (initial load or refresh)
+          setObjectResponse(data.ListObjectsResponse)
+        }
       } else {
         toast(data.error || "Failed to fetch files")
       }
@@ -32,6 +48,7 @@ export default function FileManager() {
       toast("Failed to fetch files")
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
@@ -133,6 +150,12 @@ export default function FileManager() {
     }
   }
 
+  const handleLoadMore = () => {
+    if (objectResponse.nextToken) {
+      fetchFiles(undefined, objectResponse.nextToken, 20, true)
+    }
+  }
+
 
   useEffect(() => {
     fetchFiles()
@@ -176,16 +199,16 @@ export default function FileManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Files ({files.length})</CardTitle>
+          <CardTitle>Files ({objectResponse.objects.length}{objectResponse.isTruncated ? '+' : ''})</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">Loading files...</div>
-          ) : files.length === 0 ? (
+          ) : objectResponse.objects.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No files found. Upload your first file above.</div>
           ) : (
             <div className="space-y-2">
-              {files.map((file, index) => (
+              {objectResponse.objects.map((file, index) => (
                 <div key={file.Key || index}>
                   <div className="flex items-center justify-between p-3 rounded-lg border">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -210,9 +233,27 @@ export default function FileManager() {
                       </Button>
                     </div>
                   </div>
-                  {index < files.length - 1 && <Separator />}
+                  {index < objectResponse.objects.length - 1 && <Separator />}
                 </div>
               ))}
+              {objectResponse.isTruncated && objectResponse.nextToken && (
+                <div className="flex justify-center pt-4">
+                  <Button 
+                    onClick={handleLoadMore} 
+                    disabled={loadingMore}
+                    variant="outline"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Loading more...
+                      </>
+                    ) : (
+                      'Load More Files'
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

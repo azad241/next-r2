@@ -21,14 +21,19 @@ export const listBuckets = async () => {
   return response.Buckets
 }
 
-export const listObjects = async (prefix?: string) => {
+export const listObjects = async (prefix?: string, continuationToken?: string, limit?: number) => {
   const command = new ListObjectsV2Command({
     Bucket: BUCKET_NAME,
     Prefix: prefix,
-    MaxKeys: 100,
+    MaxKeys: limit || 10,
+    ContinuationToken: continuationToken || undefined
   })
   const response = await client.send(command)
-  return response.Contents || []
+  return {
+    objects: response.Contents || [],
+    nextToken: response.NextContinuationToken,
+    isTruncated: response.IsTruncated,
+  }
 }
 
 export const uploadFile = async (

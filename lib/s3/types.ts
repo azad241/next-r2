@@ -18,3 +18,9 @@ export interface FileObject {
   Size?: number
   ETag?: string
 }
+
+export interface ListObjectsResponse {
+  objects: FileObject[]
+  nextToken?: string
+  isTruncated?: boolean
+}

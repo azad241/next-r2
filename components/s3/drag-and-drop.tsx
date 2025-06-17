@@ -6,7 +6,7 @@ import { Upload, File } from "lucide-react"
 import { toast } from "sonner"
 
 interface DragDropUploadProps {
-  onUploadComplete: () => void
+  onUploadComplete: (data: any) => void
 }
 
 export default function DragDropUpload({ onUploadComplete }: DragDropUploadProps) {
@@ -46,9 +46,10 @@ export default function DragDropUpload({ onUploadComplete }: DragDropUploadProps
             if (!response.ok) {
               throw new Error(data.error || "Failed to upload file")
             }
+            onUploadComplete(data)
           }
           toast(`${files.length} file(s) uploaded successfully`)
-          onUploadComplete()
+          
         } catch (error) {
           toast(error instanceof Error ? error.message : "Failed to upload files")
         } finally {
@@ -84,10 +85,11 @@ export default function DragDropUpload({ onUploadComplete }: DragDropUploadProps
           if (!response.ok) {
             throw new Error(data.error || "Failed to upload file")
           }
+          onUploadComplete(data)
         }
 
         toast(`${files.length} file(s) uploaded successfully`)
-        onUploadComplete()
+        
       } catch (error) {
         toast(error instanceof Error ? error.message : "Failed to upload files")
       } finally {

@@ -33,10 +33,12 @@ app.get("/buckets", async (c) => {
 
 // List objects in bucket
 app.get("/files", async (c) => {
+  const continuationToken = c.req.query("continuationToken") || undefined
+  const limit = parseInt(c.req.query("limit") || '10')
   try {
     const prefix = c.req.query("prefix")
-    const files = await listObjects(prefix)
-    return c.json({ files })
+    const ListObjectsResponse = await listObjects(prefix, continuationToken, limit)
+    return c.json({ ListObjectsResponse })
   } catch  {
     return c.json({ error: "Failed to list files" }, 500)
   }
